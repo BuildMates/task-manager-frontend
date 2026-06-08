@@ -6,6 +6,8 @@ on:
       - Frontend CI
     types:
       - completed
+    branches:
+      - '**'
 
 jobs:
   build-and-deploy:

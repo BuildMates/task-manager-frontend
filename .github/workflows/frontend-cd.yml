@@ -7,29 +7,22 @@ on:
     types:
       - completed
     branches:
-      - '**'
+      - main
 
 jobs:
   build-and-deploy:
+    # Only run if the CI pipeline actually succeeded
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
-
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
         with:
-          node-version: 20
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build project
-        run: npm run build
+          name: frontend-dist
+          path: dist/
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -38,5 +31,6 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_YOGI }}
           aws-region: ${{ secrets.AWS_REGION_YOGI }}
 
+      # The 'dist' folder is now populated by the downloaded artifact
       - name: Deploy To S3
         run: aws s3 sync dist s3://${{ secrets.S3_BUCKET_NAME_YOGI }} --delete

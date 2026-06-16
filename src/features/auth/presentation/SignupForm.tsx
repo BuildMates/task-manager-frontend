@@ -1,97 +1,134 @@
 // Import React state
-// useState stores changing data
 import {
     useState
 }
-    from "react";
+from "react";
 
 
-// Import our signup business logic
+// Import navigation
+import {
+    useNavigate
+}
+from "react-router-dom";
+
+
+// Import signup business logic
 import {
     useSignup
 }
-    from "../application/useSignup";
+from "../application/useSignup";
 
 
 
 // React component
-export default function SignupForm() {
+export default function SignupForm(){
+
+
+    // Gives function to move pages
+    const navigate = useNavigate();
 
 
 
-    // Getting signup function
+    // Getting signup API function
     const {
         signup
     } = useSignup();
 
 
 
+    // Store form values
+    const [form,setForm] = useState({
 
-    // Form data storage
-    // Initially all values empty
-
-    const [form, setForm] = useState({
-
-        name: "",
-        email: "",
-        password: ""
+        email:"",
+        password:""
 
     });
 
-    // Runs when button clicked
-
-    const handleSubmit = async () => {
 
 
-        // Calling application layer
+    // Store error message
+    const [error,setError] = useState("");
 
-        const response =
+
+
+    // Runs when signup button clicked
+    const handleSubmit = async()=>{
+
+
+        try{
+
+
+            // Call backend API
+
+            const response =
             await signup(form);
 
 
 
-        // For now print result
+            console.log(response);
 
-        console.log(response);
+
+
+            // Success -> go welcome page
+
+            navigate("/welcome");
+
+
+        }
+
+        catch(error:any){
+
+
+
+            // Backend response:
+            // {
+            //   detail:"User already exists"
+            // }
+
+            setError(
+
+                error.response?.data?.detail
+                ||
+                "Something went wrong"
+
+            );
+
+
+        }
 
 
     };
 
+
+
     return (
+
         <div>
+
+
             <h2>
                 Signup
             </h2>
 
+
+
+            {
+                error && (
+
+                    <p>
+
+                        {error}
+
+                    </p>
+
+                )
+            }
+
+
+
+
             <input
 
-                placeholder="Name"
-
-
-                value={
-                    form.name
-                }
-
-
-                onChange={(event) => {
-
-
-                    setForm({
-
-                        ...form,
-
-
-                        name:
-                            event.target.value
-
-                    })
-
-
-                }}
-
-            />
-
-            <input
 
                 placeholder="Email"
 
@@ -101,7 +138,7 @@ export default function SignupForm() {
                 }
 
 
-                onChange={(event) => {
+                onChange={(event)=>{
 
 
                     setForm({
@@ -110,16 +147,21 @@ export default function SignupForm() {
 
 
                         email:
-                            event.target.value
+                        event.target.value
 
-                    })
+                    });
 
 
                 }}
 
+
             />
 
+
+
+
             <input
+
 
                 placeholder="Password"
 
@@ -132,7 +174,7 @@ export default function SignupForm() {
                 }
 
 
-                onChange={(event) => {
+                onChange={(event)=>{
 
 
                     setForm({
@@ -141,14 +183,18 @@ export default function SignupForm() {
 
 
                         password:
-                            event.target.value
+                        event.target.value
 
-                    })
+                    });
 
 
                 }}
 
+
             />
+
+
+
 
             <button
 
@@ -160,8 +206,9 @@ export default function SignupForm() {
 
             </button>
 
-        </div>
 
+
+        </div>
 
     );
 

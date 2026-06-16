@@ -1,13 +1,18 @@
 // This describes what we send to backend
 export interface SignupRequest {
-    name: string;
+    //name: string;
     email: string;
     password: string;
 }
 
 // This describes backend response
 export interface SignupResponse {
-    id: string;
-    email: string;
+    //id: string;
+    //email: string;
     message: string;
+    user: user;
+}
+
+export interface user{
+    email:string;
 }

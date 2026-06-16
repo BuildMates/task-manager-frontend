@@ -2,26 +2,26 @@
 import {
     useState
 }
-from "react";
+    from "react";
 
 
 // Import navigation
 import {
     useNavigate
 }
-from "react-router-dom";
+    from "react-router-dom";
 
 
 // Import signup business logic
 import {
     useSignup
 }
-from "../application/useSignup";
+    from "../application/useSignup";
 
 
 
 // React component
-export default function SignupForm(){
+export default function SignupForm() {
 
 
     // Gives function to move pages
@@ -37,31 +37,31 @@ export default function SignupForm(){
 
 
     // Store form values
-    const [form,setForm] = useState({
+    const [form, setForm] = useState({
 
-        email:"",
-        password:""
+        email: "",
+        password: ""
 
     });
 
 
 
     // Store error message
-    const [error,setError] = useState("");
+    const [error, setError] = useState("");
 
 
 
     // Runs when signup button clicked
-    const handleSubmit = async()=>{
+    const handleSubmit = async () => {
 
 
-        try{
+        try {
 
 
             // Call backend API
 
             const response =
-            await signup(form);
+                await signup(form);
 
 
 
@@ -76,30 +76,34 @@ export default function SignupForm(){
 
         }
 
-        catch(error:any){
+        catch (error: unknown) {
+
+            if (error && typeof error === "object" && "response" in error) {
+
+                const apiError = error as {
+                    response?: {
+                        data?: {
+                            detail?: string;
+                        };
+                    };
+                };
 
 
+                setError(
+                    apiError.response?.data?.detail
+                    ||
+                    "Something went wrong"
+                );
 
-            // Backend response:
-            // {
-            //   detail:"User already exists"
-            // }
+            } else {
 
-            setError(
+                setError("Something went wrong");
 
-                error.response?.data?.detail
-                ||
-                "Something went wrong"
-
-            );
-
+            }
 
         }
 
-
     };
-
-
 
     return (
 
@@ -138,7 +142,7 @@ export default function SignupForm(){
                 }
 
 
-                onChange={(event)=>{
+                onChange={(event) => {
 
 
                     setForm({
@@ -147,7 +151,7 @@ export default function SignupForm(){
 
 
                         email:
-                        event.target.value
+                            event.target.value
 
                     });
 
@@ -174,7 +178,7 @@ export default function SignupForm(){
                 }
 
 
-                onChange={(event)=>{
+                onChange={(event) => {
 
 
                     setForm({
@@ -183,7 +187,7 @@ export default function SignupForm(){
 
 
                         password:
-                        event.target.value
+                            event.target.value
 
                     });
 

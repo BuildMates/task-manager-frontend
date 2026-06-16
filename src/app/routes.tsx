@@ -1,0 +1,31 @@
+import {
+    Routes,
+    Route
+} from "react-router-dom";
+
+
+import SignupPage
+    from "../pages/SignupPage";
+
+
+export default function AppRoutes() {
+
+    return (
+
+        <Routes>
+
+            <Route
+
+                path="/signup"
+
+                element={
+                    <SignupPage />
+                }
+
+            />
+
+        </Routes>
+
+    );
+
+}

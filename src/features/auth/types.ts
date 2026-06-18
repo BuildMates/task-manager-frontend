@@ -10,9 +10,22 @@ export interface SignupResponse {
     //id: string;
     //email: string;
     message: string;
-    user: user;
+    user: User;
 }
 
-export interface user{
+//Data sent to backend for login
+export interface LoginRequest {
+    email: string;
+    password: string;
+}
+
+//Backend login response
+export interface LoginResponse {
+    message: string;
+    user: User;
+}
+
+// This describes backend user object
+export interface User{
     email:string;
 }

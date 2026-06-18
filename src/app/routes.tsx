@@ -1,31 +1,58 @@
 import {
     Routes,
-    Route
-} from "react-router-dom";
-
+    Route,
+    Navigate
+}
+from "react-router-dom";
 
 import SignupPage
-    from "../pages/SignupPage";
+from "../pages/SignupPage";
 
+import WelcomePage
+from "../pages/WelcomePage";
+
+import LoginPage
+from "../pages/LoginPage";
 
 export default function AppRoutes() {
 
-    return (
+return (
+    <Routes>
+        <Route
+            path="/"
+            element={
+                <Navigate to ="/signup"/>
+            }
+        />
+        <Route
 
-        <Routes>
+            path="/signup"
 
-            <Route
+            element={
+                <SignupPage/>
+            }
 
-                path="/signup"
+        />
+        <Route
+            path="/login"
+            element={
+                <LoginPage/>
+            }
+        />
 
-                element={
-                    <SignupPage />
-                }
+        <Route
+            path="/welcome"
+            element={
+                <WelcomePage/>
+            }
+        />
 
-            />
-
-        </Routes>
-
-    );
-
+        <Route
+            path="*"
+            element={
+                <Navigate to="/signup"/>
+            }
+        />
+    </Routes>
+);
 }

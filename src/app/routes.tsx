@@ -3,56 +3,48 @@ import {
     Route,
     Navigate
 }
-from "react-router-dom";
+    from "react-router-dom";
 
-import SignupPage
-from "../pages/SignupPage";
+import AuthPage
+    from "../pages/AuthPage";
 
 import WelcomePage
-from "../pages/WelcomePage";
+    from "../pages/WelcomePage";
 
-import LoginPage
-from "../pages/LoginPage";
 
 export default function AppRoutes() {
 
-return (
-    <Routes>
-        <Route
-            path="/"
-            element={
-                <Navigate to ="/signup"/>
-            }
-        />
-        <Route
+    return (
+        <Routes>
+            {/* Default route */}
+            {/* When user opens localhost:5173 */}
+            {/* show Auth page */}
+            <Route
 
-            path="/signup"
+                path="/"
 
-            element={
-                <SignupPage/>
-            }
+                element={
+                    <AuthPage />
+                }
 
-        />
-        <Route
-            path="/login"
-            element={
-                <LoginPage/>
-            }
-        />
+            />
+            {/* After successful login/signup */}
+            <Route
+                path="/welcome"
+                element={
+                    <WelcomePage />
+                }
+            />
+            {/* Any wrong URL */}
+            {/* Example: /abc */}
+            {/* redirect back to auth */}
 
-        <Route
-            path="/welcome"
-            element={
-                <WelcomePage/>
-            }
-        />
-
-        <Route
-            path="*"
-            element={
-                <Navigate to="/signup"/>
-            }
-        />
-    </Routes>
-);
+            <Route
+                path="*"
+                element={
+                    <Navigate to="/" />
+                }
+            />
+        </Routes>
+    );
 }

@@ -1,5 +1,4 @@
 import {
-    useEffect,
     useState
 }
 from "react";
@@ -14,20 +13,18 @@ interface UserDetails {
 }
 
 export default function WelcomePage(){
-    const [data,setData] =
-    useState<UserDetails | null>(null);
-    useEffect(()=>{
+    const [data] =
+    useState<UserDetails | null>(()=>{
         const user =
         localStorage.getItem(
             "userDetails"
         );
 
         if(user){
-            setData(
-                JSON.parse(user)
-            );
+            return JSON.parse(user);
         }
-    },[]);
+        return null;
+    });
 
     return (
         <div

@@ -34,6 +34,13 @@ export default function LoginForm(){
             const response =
             await login(form);
             console.log(response);
+            
+            // Save login state
+            localStorage.setItem(
+                "isLoggedIn",
+                "true"
+            );
+            // move to welcome
             navigate("/welcome");
         }
         catch(error:unknown){
@@ -66,47 +73,53 @@ export default function LoginForm(){
                 Login
             </h2>
             {
-                error &&
-                <p>
-                    {error}
-                </p>
+                error && (
+                    <p>
+                        {error}
+                    </p>
+                )
             }
+            <div>
 
-            <input
-                placeholder="Email"
-                value={
-                    form.email
-                }
+                <input
+                    placeholder="Email"
+                    value={
+                        form.email
+                    }
 
-                onChange={(event)=>{
-                    setForm({
-                        ...form,
-                        email:
-                        event.target.value
-                    });
-                }}
-            />
+                    onChange={(event)=>{
+                        setForm({
+                            ...form,
+                            email:
+                            event.target.value
+                        });
+                    }}
+                />
+            </div>
+            <div>
+                <input
+                    placeholder="Password"
+                    type="password"
+                    value={
+                        form.password
+                    }
+                    onChange={(event)=>{
+                        setForm({
+                            ...form,
+                            password:
+                            event.target.value
+                        });
+                    }}
+                />
+            </div>
+            <div>
 
-            <input
-                placeholder="Password"
-                type="password"
-                value={
-                    form.password
-                }
-                onChange={(event)=>{
-                    setForm({
-                        ...form,
-                        password:
-                        event.target.value
-                    });
-                }}
-            />
-
-            <button
-                onClick={handleSubmit}
-            >
-                Login
-            </button>
+                <button
+                    onClick={handleSubmit}
+                >
+                    Login
+                </button>
+            </div>
         </div>
     );
 }

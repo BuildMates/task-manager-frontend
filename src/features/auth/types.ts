@@ -28,4 +28,7 @@ export interface LoginResponse {
 // This describes backend user object
 export interface User{
     email:string;
+    fname: string;
+    lname: string;
+    phone: string;
 }

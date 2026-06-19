@@ -14,58 +14,61 @@ export default function AuthPage(){
     useState<"login" | "signup">("login");
 
     return (
-        <div>
+        <div
+            style={{
+                width:"350px",
+                margin:"80px auto",
+                padding:"30px",
+                border:"1px solid #ddd",
+                borderRadius:"12px"
+            }}
+        >
             <h1>
                 Build Mates
             </h1>
-            {/* Toggle buttons */}
+            {/* Login Signup buttons */}
             <div>
                 <button
-                    onClick={()=>
-                        setMode("login")
-                    }
-                    disabled={
-                        mode === "login"
-                    }
+                onClick={()=>setMode("login")}
+                disabled={mode==="login"}
                 >
                     Login
                 </button>
-
                 <button
-                    onClick={()=>
-                        setMode("signup")
-                    }
-                    disabled={
-                        mode === "signup"
-                    }
+                onClick={()=>setMode("signup")}
+                disabled={mode==="signup"}
                 >
                     Signup
                 </button>
             </div>
-
-            {/* Show selected form */}
-
             {
-                mode === "login"
+                mode==="login"
                 ?
                 <LoginForm/>
                 :
                 <SignupForm/>
             }
-
-            {/* Bottom switch text */}
-
             {
-                mode === "login"
+                mode==="login"
                 &&
                 <p>
                     Not a member?
                     <button
-                        onClick={()=>
-                            setMode("signup")
-                        }
+                        onClick={()=>setMode("signup")}
                     >
                         Signup now
+                    </button>
+                </p>
+            }
+            {
+                mode==="signup"
+                &&
+                <p>
+                    Already have account?
+                    <button
+                        onClick={()=>setMode("login")}
+                    >
+                        Login
                     </button>
                 </p>
             }

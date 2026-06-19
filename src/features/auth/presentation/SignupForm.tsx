@@ -28,14 +28,16 @@ export default function SignupForm(){
 
     // Store form values
     const [form,setForm] = useState({
+        fname:"",
+        lname:"",
         email:"",
+        phone:"",
         password:"",
         confirmPassword:""
     });
 
     // Store error message
     const [error,setError] = useState("");
-
 
     // Check passwords match
     const isPasswordMatch =
@@ -67,16 +69,24 @@ export default function SignupForm(){
 
             console.log(response);
 
-            // Move to welcome page
-            navigate(
-                "/welcome",
-                {
-                    state:{
-                        email:
-                        response.user.email
-                    }
-                }
+            // Save frontend user details
+            const userDetails = {
+                fname: form.fname,
+                lname: form.lname,
+                phone: form.phone,
+                email: form.email,
+                type: "signup"
+            };
+            localStorage.removeItem(
+                "userDetails"
             );
+            localStorage.setItem(
+                "userDetails",
+                JSON.stringify(userDetails)
+            );
+
+            // Move to welcome page
+            navigate("/welcome");
         }
         catch(error:unknown){
             if(
@@ -120,7 +130,45 @@ export default function SignupForm(){
                 )
             }
             <div>
-
+                <input
+                    placeholder="First Name"
+                    value={form.fname}
+                    onChange={(event)=>{
+                        setForm({
+                            ...form,
+                            fname:
+                            event.target.value
+                        });
+                    }}
+                />
+            </div>
+            <div>
+                <input
+                    placeholder="Last Name"
+                    value={form.lname}
+                    onChange={(event)=>{
+                        setForm({
+                            ...form,
+                            lname:
+                            event.target.value
+                        });
+                    }}
+                />
+            </div>
+            <div>
+                <input
+                    placeholder="Phone"
+                    value={form.phone}
+                    onChange={(event)=>{
+                        setForm({
+                            ...form,
+                            phone:
+                            event.target.value
+                        });
+                    }}
+                />
+            </div>
+            <div>
                 <input
                     placeholder="Email"
                     value={form.email}

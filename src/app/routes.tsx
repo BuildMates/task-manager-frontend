@@ -11,6 +11,8 @@ import AuthPage
 import WelcomePage
     from "../pages/WelcomePage";
 
+import ProtectedRoute
+    from "./ProtectedRoute";
 
 export default function AppRoutes() {
 
@@ -20,19 +22,18 @@ export default function AppRoutes() {
             {/* When user opens localhost:5173 */}
             {/* show Auth page */}
             <Route
-
                 path="/"
-
                 element={
                     <AuthPage />
                 }
-
             />
             {/* After successful login/signup */}
             <Route
                 path="/welcome"
                 element={
-                    <WelcomePage />
+                    <ProtectedRoute>
+                        <WelcomePage />
+                    </ProtectedRoute>
                 }
             />
             {/* Any wrong URL */}

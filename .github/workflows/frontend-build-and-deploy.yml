@@ -100,10 +100,6 @@ jobs:
           BRANCH="${{ steps.deployment.outputs.branch }}"
           REGION="${{ secrets.YKV_AWS_REGION }}"
           
-          echo "DEBUG: BUCKET=$BUCKET"
-          echo "DEBUG: BRANCH=$BRANCH"
-          echo "DEBUG: REGION=$REGION"
-          
           # Check if this is a feature branch
           if [[ "$BRANCH" == feature/* ]]; then
             echo "Creating S3 bucket for feature branch: $BUCKET"
@@ -119,14 +115,44 @@ jobs:
                 --region "$REGION" \
                 --versioning-configuration Status=Enabled || exit 1
               
-              # Block public access for security
+              # Unblock public access
               aws s3api put-public-access-block \
                 --bucket "${BUCKET}" \
                 --region "$REGION" \
                 --public-access-block-configuration \
-                "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true" || exit 1
+                "BlockPublicAcls=false,IgnorePublicAcls=false,BlockPublicPolicy=false,RestrictPublicBuckets=false" || exit 1
               
-              echo "Bucket created successfully: $BUCKET"
+              # Set bucket policy for public read access
+              cat > /tmp/bucket-policy.json <<EOF
+              {
+                "Version": "2012-10-17",
+                "Statement": [
+                  {
+                    "Sid": "PublicReadGetObject",
+                    "Effect": "Allow",
+                    "Principal": "*",
+                    "Action": "s3:GetObject",
+                    "Resource": "arn:aws:s3:::${BUCKET}/*"
+                  }
+                ]
+              }
+              EOF
+              
+              aws s3api put-bucket-policy \
+                --bucket "${BUCKET}" \
+                --region "$REGION" \
+                --policy file:///tmp/bucket-policy.json || exit 1
+              
+              # Enable static website hosting
+              aws s3api put-bucket-website \
+                --bucket "${BUCKET}" \
+                --region "$REGION" \
+                --website-configuration '{
+                  "IndexDocument": {"Suffix": "index.html"},
+                  "ErrorDocument": {"Key": "index.html"}
+                }' || exit 1
+              
+              echo "Bucket created and configured successfully: $BUCKET"
             else
               echo "Bucket already exists: $BUCKET"
             fi
@@ -141,7 +167,7 @@ jobs:
           aws s3 sync dist s3://${{ steps.deployment.outputs.s3_bucket }} --delete
 
       - name: Deployment Complete
-        if: always()
+        if: success()
         run: |
           BUCKET="${{ steps.deployment.outputs.s3_bucket }}"
           REGION="${{ secrets.YKV_AWS_REGION }}"

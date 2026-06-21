@@ -1,5 +1,4 @@
 name: Frontend CD
-
 on:
   workflow_run:
     workflows:
@@ -8,29 +7,139 @@ on:
       - completed
     branches:
       - main
+      - 'feature/**'
+
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Deployment environment
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
 
 jobs:
-  build-and-deploy:
-    # Only run if the CI pipeline actually succeeded
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+  deploy:
+    if:
+      github.event.workflow_run.conclusion == 'success'
+      ||
+      github.event_name == 'workflow_dispatch'
+
     runs-on: ubuntu-latest
+    environment:
+      ${{
+        github.event_name == 'workflow_dispatch'
+        && inputs.environment
+        || 'dev'
+      }}
 
     steps:
-      - name: Download build artifacts
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Determine deployment target
+        id: deployment
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            # Manual trigger
+            BRANCH_NAME="main"
+            ENVIRONMENT="${{ inputs.environment }}"
+            if [ "$ENVIRONMENT" == "prod" ]; then
+              S3_BUCKET="${{ secrets.YKV_AWS_S3_BUCKET_PROD }}"
+            else
+              S3_BUCKET="${{ secrets.YKV_AWS_S3_BUCKET_DEV }}"
+            fi
+          else
+            # CI workflow trigger
+            BRANCH_NAME="${{ github.event.workflow_run.head_branch }}"
+            if [[ "$BRANCH_NAME" == "main" ]]; then
+              S3_BUCKET="${{ secrets.YKV_AWS_S3_BUCKET_DEV }}"
+            elif [[ "$BRANCH_NAME" == feature/* ]]; then
+              BRANCH_SLUG=$(echo "$BRANCH_NAME" | sed 's/feature\///' | tr '/' '-' | tr '_' '-')
+              S3_BUCKET="buildmates-${BRANCH_SLUG}"
+            else
+              echo "Unknown branch: $BRANCH_NAME"
+              exit 1
+            fi
+          fi
+          
+          echo "branch=${BRANCH_NAME}" >> $GITHUB_OUTPUT
+          echo "s3_bucket=${S3_BUCKET}" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Download build artifact
         uses: actions/download-artifact@v4
         with:
-          name: frontend-dist
-          path: dist/
-          run-id: ${{ github.event.workflow_run.id }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          name:
+            frontend-dist-${{ github.event.workflow_run.head_sha || github.sha }}
+          path:
+            dist/
+          run-id:
+            ${{ github.event.workflow_run.id }}
+          github-token:
+            ${{ secrets.GITHUB_TOKEN }}
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_YOGI }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_YOGI }}
-          aws-region: ${{ secrets.AWS_REGION_YOGI }}
+          aws-access-key-id:
+            ${{ secrets.YKV_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key:
+            ${{ secrets.YKV_AWS_SECRET_ACCESS_KEY }}
+          aws-region:
+            ${{ secrets.YKV_AWS_REGION }}
 
-      # The 'dist' folder is now populated by the downloaded artifact
+      - name: Create S3 bucket for feature branch (if needed)
+        run: |
+          BUCKET="${{ steps.deployment.outputs.s3_bucket }}"
+          BRANCH="${{ steps.deployment.outputs.branch }}"
+          
+          # Check if this is a feature branch
+          if [[ "$BRANCH" == feature/* ]]; then
+            echo "Creating S3 bucket for feature branch: $BUCKET"
+            
+            # Check if bucket exists
+            if aws s3 ls "s3://${BUCKET}" 2>&1 | grep -q 'NoSuchBucket'; then
+              echo "Bucket does not exist. Creating: $BUCKET"
+              aws s3 mb "s3://${BUCKET}" --region ${{ secrets.YKV_AWS_REGION }}
+              
+              # Enable versioning
+              aws s3api put-bucket-versioning \
+                --bucket "${BUCKET}" \
+                --versioning-configuration Status=Enabled
+              
+              # Block public access for security
+              aws s3api put-public-access-block \
+                --bucket "${BUCKET}" \
+                --public-access-block-configuration \
+                "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true"
+              
+              echo "Bucket created successfully: $BUCKET"
+            else
+              echo "Bucket already exists: $BUCKET"
+            fi
+          else
+            echo "Using existing bucket for branch $BRANCH: $BUCKET"
+          fi
+        shell: bash
+
       - name: Deploy To S3
-        run: aws s3 sync dist s3://${{ secrets.S3_BUCKET_NAME_YOGI }} --delete
+        run: |
+          echo "Deploying S3 Bucket: ${{ steps.deployment.outputs.s3_bucket }}"
+          aws s3 sync dist s3://${{ steps.deployment.outputs.s3_bucket }} --delete
+
+      - name: Deployment Complete
+        if: always()
+        run: |
+          BUCKET="${{ steps.deployment.outputs.s3_bucket }}"
+          REGION="${{ secrets.YKV_AWS_REGION }}"
+          URL="http://${BUCKET}.s3-website.${REGION}.amazonaws.com"
+          
+          echo "========================================"
+          echo "✅ DEPLOYMENT SUCCESSFUL"
+          echo "========================================"
+          echo "S3 Bucket: ${BUCKET}"
+          echo "Region: ${REGION}"
+          echo "Website URL: ${URL}"
+          echo "========================================"

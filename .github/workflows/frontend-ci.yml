@@ -1,40 +1,44 @@
 name: Frontend CI
-
 on:
   push:
+    branches:
+      - "feature/**"
+      - main
+
   pull_request:
+    branches:
+      - main
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 24
-          cache: 'npm'
+          node-version: 20
+          cache: npm
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Run lint (if available)
-        run: npm run lint --if-present
+      - name: Lint
+        run: npm run lint
 
-      - name: Run tests
+      - name: Test
         run: npm test --if-present
 
-      - name: Build project
+      - name: Build
         env:
-          VITE_API_URL: ${{ secrets.VITE_API_URL }}
-        run: npm run build --if-present
+          VITE_API_URL: ${{ secrets.VITE_API_URL_DEV }}
+        run: npm run build
 
-      - name: Upload build artifacts
+      - name: Upload build
         uses: actions/upload-artifact@v4
         with:
-          name: frontend-dist
+          name: frontend-dist-${{ github.sha }}
           path: dist/
           retention-days: 1

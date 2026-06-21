@@ -37,7 +37,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
@@ -92,13 +92,13 @@ jobs:
           aws-secret-access-key:
             ${{ secrets.YKV_AWS_SECRET_ACCESS_KEY }}
           aws-region:
-            ${{ secrets.YKV_AWS_REGION }}
+            ${{ vars.YKV_AWS_REGION }}
 
       - name: Create S3 bucket for feature branch (if needed)
         run: |
           BUCKET="${{ steps.deployment.outputs.s3_bucket }}"
           BRANCH="${{ steps.deployment.outputs.branch }}"
-          REGION="${{ secrets.YKV_AWS_REGION }}"
+          REGION="${{ vars.YKV_AWS_REGION }}"
           
           # Check if this is a feature branch
           if [[ "$BRANCH" == feature/* ]]; then
@@ -170,7 +170,7 @@ jobs:
         if: success()
         run: |
           BUCKET="${{ steps.deployment.outputs.s3_bucket }}"
-          REGION="${{ secrets.YKV_AWS_REGION }}"
+          REGION="${{ vars.YKV_AWS_REGION }}"
           URL="http://${BUCKET}.s3-website.${REGION}.amazonaws.com"
           
           echo "========================================"

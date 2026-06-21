@@ -23,9 +23,8 @@ describe('SignupForm', () => {
   });
   
   it('should reject mismatched passwords', () => {
-    const password = 'password123';
-    const confirmPassword = 'password456';
-    expect(password === confirmPassword).toBe(false);
+    const passwords = ['password123', 'password456'];
+    expect(passwords[0]).not.toBe(passwords[1]);
   });
   
   it('should validate phone number format', () => {

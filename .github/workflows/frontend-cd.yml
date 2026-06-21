@@ -1,10 +1,13 @@
 name: Frontend CD
 on:
-  workflow_run:
-    workflows:
-      - Frontend CI
-    types:
-      - completed
+  push:
+    branches:
+      - main
+      - 'feature/**'
+  
+  pull_request:
+    branches:
+      - main
 
   workflow_dispatch:
     inputs:
@@ -18,11 +21,7 @@ on:
 
 jobs:
   deploy:
-    if:
-      github.event.workflow_run.conclusion == 'success'
-      ||
-      github.event_name == 'workflow_dispatch'
-
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment:
       ${{
@@ -34,6 +33,20 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL_DEV }}
+        run: npm run build
 
       - name: Determine deployment target
         id: deployment
@@ -48,8 +61,8 @@ jobs:
               S3_BUCKET="${{ secrets.YKV_AWS_S3_BUCKET_DEV }}"
             fi
           else
-            # CI workflow trigger
-            BRANCH_NAME="${{ github.event.workflow_run.head_branch }}"
+            # Push or PR trigger
+            BRANCH_NAME="${{ github.ref_name }}"
             if [[ "$BRANCH_NAME" == "main" ]]; then
               S3_BUCKET="${{ secrets.YKV_AWS_S3_BUCKET_DEV }}"
             elif [[ "$BRANCH_NAME" == feature/* ]]; then
@@ -64,18 +77,6 @@ jobs:
           echo "branch=${BRANCH_NAME}" >> $GITHUB_OUTPUT
           echo "s3_bucket=${S3_BUCKET}" >> $GITHUB_OUTPUT
         shell: bash
-
-      - name: Download build artifact
-        uses: actions/download-artifact@v4
-        with:
-          name:
-            frontend-dist-${{ github.event.workflow_run.head_sha || github.sha }}
-          path:
-            dist/
-          run-id:
-            ${{ github.event.workflow_run.id }}
-          github-token:
-            ${{ secrets.GITHUB_TOKEN }}
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4

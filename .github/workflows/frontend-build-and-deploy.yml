@@ -73,7 +73,10 @@ jobs:
               S3_BUCKET="${{ secrets.YKV_AWS_S3_BUCKET_DEV }}"
             elif [[ "$BRANCH_NAME" == feature/* ]]; then
               BRANCH_SLUG=$(echo "$BRANCH_NAME" | sed 's/feature\///' | tr '/' '-' | tr '_' '-')
-              S3_BUCKET="buildmates-${BRANCH_SLUG}"
+              if [[ "$BRANCH_SLUG" != *-dev ]]; then
+                BRANCH_SLUG="${BRANCH_SLUG}-dev"
+              fi
+              S3_BUCKET="${BRANCH_SLUG}"
             else
               echo "Unknown branch: $BRANCH_NAME"
               exit 1
@@ -99,29 +102,33 @@ jobs:
           BUCKET="${{ steps.deployment.outputs.s3_bucket }}"
           BRANCH="${{ steps.deployment.outputs.branch }}"
           REGION="${{ vars.YKV_AWS_REGION }}"
-          
-          # Check if this is a feature branch
+
           if [[ "$BRANCH" == feature/* ]]; then
-            echo "Creating S3 bucket for feature branch: $BUCKET"
-            
-            # Check if bucket exists
-            if aws s3 ls "s3://${BUCKET}" 2>&1 | grep -q 'NoSuchBucket'; then
+            echo "Checking S3 bucket for feature branch: $BUCKET"
+
+            # Use head-bucket and check the exit code, not error text.
+            # aws s3 ls can return AccessDenied (not NoSuchBucket) when the
+            # IAM user lacks permission, which previously caused this check
+            # to wrongly assume the bucket already existed.
+            if aws s3api head-bucket --bucket "${BUCKET}" --region "$REGION" 2>/dev/null; then
+              echo "Bucket already exists: $BUCKET"
+            else
               echo "Bucket does not exist. Creating: $BUCKET in region: $REGION"
               aws s3 mb "s3://${BUCKET}" --region "$REGION" || exit 1
-              
+
               # Enable versioning
               aws s3api put-bucket-versioning \
                 --bucket "${BUCKET}" \
                 --region "$REGION" \
                 --versioning-configuration Status=Enabled || exit 1
-              
+
               # Unblock public access
               aws s3api put-public-access-block \
                 --bucket "${BUCKET}" \
                 --region "$REGION" \
                 --public-access-block-configuration \
                 "BlockPublicAcls=false,IgnorePublicAcls=false,BlockPublicPolicy=false,RestrictPublicBuckets=false" || exit 1
-              
+
               # Set bucket policy for public read access
               aws s3api put-bucket-policy \
                 --bucket "${BUCKET}" \
@@ -138,7 +145,7 @@ jobs:
                     }
                   ]
                 }' || exit 1
-              
+
               # Enable static website hosting
               aws s3api put-bucket-website \
                 --bucket "${BUCKET}" \
@@ -147,10 +154,8 @@ jobs:
                   "IndexDocument": {"Suffix": "index.html"},
                   "ErrorDocument": {"Key": "index.html"}
                 }' || exit 1
-              
+
               echo "Bucket created and configured successfully: $BUCKET"
-            else
-              echo "Bucket already exists: $BUCKET"
             fi
           else
             echo "Using existing bucket for branch $BRANCH: $BUCKET"

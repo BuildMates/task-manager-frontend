@@ -1,0 +1,183 @@
+name: Frontend Build and Deploy
+on:
+  push:
+    branches:
+      - main
+      - 'feature/**'
+  
+  pull_request:
+    branches:
+      - main
+
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Deployment environment
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+
+jobs:
+  build-test-deploy:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment:
+      ${{
+        github.event_name == 'workflow_dispatch'
+        && inputs.environment
+        || 'dev'
+      }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test --if-present
+
+      - name: Build
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL_DEV }}
+        run: npm run build
+
+      - name: Determine deployment target
+        id: deployment
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            # Manual trigger
+            BRANCH_NAME="main"
+            ENVIRONMENT="${{ inputs.environment }}"
+            if [ "$ENVIRONMENT" == "prod" ]; then
+              S3_BUCKET="${{ secrets.YKV_AWS_S3_BUCKET_PROD }}"
+            else
+              S3_BUCKET="${{ secrets.YKV_AWS_S3_BUCKET_DEV }}"
+            fi
+          else
+            # Push or PR trigger
+            BRANCH_NAME="${{ github.ref_name }}"
+            if [[ "$BRANCH_NAME" == "main" ]]; then
+              S3_BUCKET="${{ secrets.YKV_AWS_S3_BUCKET_DEV }}"
+            elif [[ "$BRANCH_NAME" == feature/* ]]; then
+              BRANCH_SLUG=$(echo "$BRANCH_NAME" | sed 's/feature\///' | tr '/' '-' | tr '_' '-')
+              if [[ "$BRANCH_SLUG" != *-dev ]]; then
+                BRANCH_SLUG="${BRANCH_SLUG}-dev"
+              fi
+              S3_BUCKET="${BRANCH_SLUG}"
+            else
+              echo "Unknown branch: $BRANCH_NAME"
+              exit 1
+            fi
+          fi
+          
+          echo "branch=${BRANCH_NAME}" >> $GITHUB_OUTPUT
+          echo "s3_bucket=${S3_BUCKET}" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id:
+            ${{ secrets.YKV_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key:
+            ${{ secrets.YKV_AWS_SECRET_ACCESS_KEY }}
+          aws-region:
+            ${{ vars.YKV_AWS_REGION }}
+
+      - name: Create S3 bucket for feature branch (if needed)
+        run: |
+          BUCKET="${{ steps.deployment.outputs.s3_bucket }}"
+          BRANCH="${{ steps.deployment.outputs.branch }}"
+          REGION="${{ vars.YKV_AWS_REGION }}"
+
+          if [[ "$BRANCH" == feature/* ]]; then
+            echo "Checking S3 bucket for feature branch: $BUCKET"
+
+            # Use head-bucket and check the exit code, not error text.
+            # aws s3 ls can return AccessDenied (not NoSuchBucket) when the
+            # IAM user lacks permission, which previously caused this check
+            # to wrongly assume the bucket already existed.
+            if aws s3api head-bucket --bucket "${BUCKET}" --region "$REGION" 2>/dev/null; then
+              echo "Bucket already exists: $BUCKET"
+            else
+              echo "Bucket does not exist. Creating: $BUCKET in region: $REGION"
+              aws s3 mb "s3://${BUCKET}" --region "$REGION" || exit 1
+
+              # Enable versioning
+              aws s3api put-bucket-versioning \
+                --bucket "${BUCKET}" \
+                --region "$REGION" \
+                --versioning-configuration Status=Enabled || exit 1
+
+              # Unblock public access
+              aws s3api put-public-access-block \
+                --bucket "${BUCKET}" \
+                --region "$REGION" \
+                --public-access-block-configuration \
+                "BlockPublicAcls=false,IgnorePublicAcls=false,BlockPublicPolicy=false,RestrictPublicBuckets=false" || exit 1
+
+              # Set bucket policy for public read access
+              aws s3api put-bucket-policy \
+                --bucket "${BUCKET}" \
+                --region "$REGION" \
+                --policy '{
+                  "Version": "2012-10-17",
+                  "Statement": [
+                    {
+                      "Sid": "PublicReadGetObject",
+                      "Effect": "Allow",
+                      "Principal": "*",
+                      "Action": "s3:GetObject",
+                      "Resource": "arn:aws:s3:::'"${BUCKET}"'/*"
+                    }
+                  ]
+                }' || exit 1
+
+              # Enable static website hosting
+              aws s3api put-bucket-website \
+                --bucket "${BUCKET}" \
+                --region "$REGION" \
+                --website-configuration '{
+                  "IndexDocument": {"Suffix": "index.html"},
+                  "ErrorDocument": {"Key": "index.html"}
+                }' || exit 1
+
+              echo "Bucket created and configured successfully: $BUCKET"
+            fi
+          else
+            echo "Using existing bucket for branch $BRANCH: $BUCKET"
+          fi
+        shell: bash
+
+      - name: Deploy To S3
+        run: |
+          echo "Deploying S3 Bucket: ${{ steps.deployment.outputs.s3_bucket }}"
+          aws s3 sync dist s3://${{ steps.deployment.outputs.s3_bucket }} --delete
+
+      - name: Deployment Complete
+        if: success()
+        run: |
+          BUCKET="${{ steps.deployment.outputs.s3_bucket }}"
+          REGION="${{ vars.YKV_AWS_REGION }}"
+          URL="http://${BUCKET}.s3-website.${REGION}.amazonaws.com"
+          
+          echo "========================================"
+          echo "✅ DEPLOYMENT SUCCESSFUL"
+          echo "========================================"
+          echo "S3 Bucket: ${BUCKET}"
+          echo "Region: ${REGION}"
+          echo "Website URL: ${URL}"
+          echo "========================================"

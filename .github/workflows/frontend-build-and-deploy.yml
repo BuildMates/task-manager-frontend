@@ -1,4 +1,4 @@
-name: Frontend CI/CD
+name: Frontend Build and Deploy
 on:
   push:
     branches:

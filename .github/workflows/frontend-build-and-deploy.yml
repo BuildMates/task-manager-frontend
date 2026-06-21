@@ -98,6 +98,11 @@ jobs:
         run: |
           BUCKET="${{ steps.deployment.outputs.s3_bucket }}"
           BRANCH="${{ steps.deployment.outputs.branch }}"
+          REGION="${{ secrets.YKV_AWS_REGION }}"
+          
+          echo "DEBUG: BUCKET=$BUCKET"
+          echo "DEBUG: BRANCH=$BRANCH"
+          echo "DEBUG: REGION=$REGION"
           
           # Check if this is a feature branch
           if [[ "$BRANCH" == feature/* ]]; then
@@ -105,19 +110,21 @@ jobs:
             
             # Check if bucket exists
             if aws s3 ls "s3://${BUCKET}" 2>&1 | grep -q 'NoSuchBucket'; then
-              echo "Bucket does not exist. Creating: $BUCKET"
-              aws s3 mb "s3://${BUCKET}" --region ${{ secrets.YKV_AWS_REGION }}
+              echo "Bucket does not exist. Creating: $BUCKET in region: $REGION"
+              aws s3 mb "s3://${BUCKET}" --region "$REGION" || exit 1
               
               # Enable versioning
               aws s3api put-bucket-versioning \
                 --bucket "${BUCKET}" \
-                --versioning-configuration Status=Enabled
+                --region "$REGION" \
+                --versioning-configuration Status=Enabled || exit 1
               
               # Block public access for security
               aws s3api put-public-access-block \
                 --bucket "${BUCKET}" \
+                --region "$REGION" \
                 --public-access-block-configuration \
-                "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true"
+                "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true" || exit 1
               
               echo "Bucket created successfully: $BUCKET"
             else
